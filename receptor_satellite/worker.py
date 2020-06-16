@@ -1,11 +1,15 @@
 import asyncio
 import json
 import logging
+import re
 
 from .satellite_api import SatelliteAPI, HEALTH_CHECK_ERROR, HEALTH_STATUS_RESULTS
 from .response.response_queue import ResponseQueue
 import receptor_satellite.response.constants as constants
 from .run_monitor import run_monitor
+
+# EXCEPTION means failure between capsule and the target host
+EXIT_STATUS_RE = re.compile(r"Exit status: ([0-9]+|EXCEPTION)", re.MULTILINE)
 
 
 def receptor_export(func):
@@ -88,6 +92,7 @@ class Host:
         self.name = name
         self.sequence = 0
         self.since = None if run.config.text_update_full else 0.0
+        self.result = None
 
     def mark_as_failed(self, message):
         queue = self.run.queue
@@ -115,14 +120,27 @@ class Host:
                 )
                 self.sequence += 1
             if body["complete"]:
-                result = constants.RESULT_FAILURE
-                if last_output.endswith("Exit status: 0"):
-                    result = constants.RESULT_SUCCESS
+                result = constants.HOST_RESULT_FAILURE
+                matches = re.findall(EXIT_STATUS_RE, last_output)
+                # This means the job was already running on the host
+                if matches:
+                    # If exitcode is 0
+                    if matches[0] == "0":
+                        result = constants.HOST_RESULT_SUCCESS
+                    elif self.run.cancelled:
+                        result = constants.HOST_RESULT_CANCEL
                 elif self.run.cancelled:
-                    result = constants.RESULT_CANCEL
+                    result = constants.HOST_RESULT_CANCEL
+                else:
+                    result = constants.HOST_RESULT_INFRA_FAILURE
                 self.run.queue.playbook_run_finished(
-                    self.name, self.run.playbook_run_id, result
+                    self.name,
+                    self.run.playbook_run_id,
+                    constants.HOST_RESULT_FAILURE
+                    if result == constants.HOST_RESULT_INFRA_FAILURE
+                    else result,
                 )
+                self.result = result
                 break
 
     async def poll_with_retries(self):
@@ -207,6 +225,24 @@ class Run:
                 )
                 self.update_hosts(response["body"]["targeting"]["hosts"])
                 await asyncio.gather(*[host.polling_loop() for host in self.hosts])
+                result = constants.RESULT_FAILURE
+                infrastructure_error = None
+                if self.cancelled:
+                    result = constants.RESULT_CANCEL
+                elif any(
+                    host.result == constants.HOST_RESULT_INFRA_FAILURE
+                    for host in self.hosts
+                ):
+                    infrastructure_error = "Infrastructure error"
+                elif all(
+                    host.result == constants.HOST_RESULT_SUCCESS for host in self.hosts
+                ):
+                    result = constants.RESULT_SUCCESS
+                self.queue.playbook_run_completed(
+                    self.playbook_run_id,
+                    result,
+                    infrastructure_error=infrastructure_error,
+                )
             await run_monitor.done(self)
             self.logger.info(f"Playbook run {self.playbook_run_id} done")
         finally:
@@ -224,6 +260,9 @@ class Run:
         )
         for host in self.hosts:
             host.mark_as_failed(error)
+        self.queue.playbook_run_completed(
+            self.playbook_run_id, constants.RESULT_FAILURE, connection_error=error
+        )
 
 
 async def cancel_run(satellite_api, run_id, queue, logger):
