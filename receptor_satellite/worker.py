@@ -299,8 +299,8 @@ def execute(message, config, queue):
     logger = configure_logger()
     queue = ResponseQueue(queue)
     payload = json.loads(message.raw_payload)
-    satellite_api = SatelliteAPI.from_plugin_config(config["plugin_config"])
-    run(Run.from_raw(queue, payload, config, satellite_api, logger).start())
+    satellite_api = SatelliteAPI.from_plugin_config(config)
+    run(Run.from_raw(queue, payload, satellite_api, logger).start())
 
 
 @receptor_export
