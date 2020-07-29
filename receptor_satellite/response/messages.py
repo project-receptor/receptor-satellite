@@ -22,7 +22,7 @@ def playbook_run_completed(
     }
 
 
-def playbook_run_cancel_ack(self, playbook_run_id, status):
+def playbook_run_cancel_ack(playbook_run_id, status):
     return {
         "type": "playbook_run_cancel_ack",
         "playbook_run_id": playbook_run_id,
