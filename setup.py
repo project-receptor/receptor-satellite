@@ -12,7 +12,7 @@ setup(
     name="receptor-satellite",
     version="1.1.0",
     author="Red Hat Ansible",
-    url="https://github.com/adamruzicka/receptor-satellite",
+    url="https://github.com/project-receptor/receptor-satellite",
     license="Apache",
     packages=find_packages(),
     long_description=long_description,
