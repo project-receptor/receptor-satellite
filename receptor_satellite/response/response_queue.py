@@ -15,9 +15,18 @@ class ResponseQueue:
         )
 
     def playbook_run_finished(
-        self, host, playbook_run_id, result=constants.RESULT_SUCCESS
+        self,
+        host,
+        playbook_run_id,
+        result=constants.RESULT_SUCCESS,
+        connection_error=False,
+        exit_code=0,
     ):
-        self.queue.put(messages.playbook_run_finished(host, playbook_run_id, result))
+        self.queue.put(
+            messages.playbook_run_finished(
+                host, playbook_run_id, result, connection_error, exit_code
+            )
+        )
 
     def playbook_run_completed(
         self, playbook_run_id, status, connection_error=None, infrastructure_error=None

@@ -30,12 +30,21 @@ def playbook_run_cancel_ack(playbook_run_id, status):
     }
 
 
-def playbook_run_finished(host, playbook_run_id, result=RESULT_SUCCESS):
+def playbook_run_finished(
+    host,
+    playbook_run_id,
+    result=RESULT_SUCCESS,
+    connection_error=False,
+    execution_code=0,
+):
     return {
+        "version": 2,
         "type": "playbook_run_finished",
         "playbook_run_id": playbook_run_id,
         "host": host,
         "status": result,
+        "connection_code": 1 if connection_error else 0,
+        "execution_code": None if connection_error else execution_code,
     }
 
 

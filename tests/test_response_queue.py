@@ -13,7 +13,10 @@ PLAYBOOK_RUN_COMPLETED_TEST_CASES = [
     ),
     (
         ("some-uuid", constants.RESULT_FAILURE, None, None),
-        messages.playbook_run_completed("some-uuid", constants.RESULT_FAILURE,),
+        messages.playbook_run_completed(
+            "some-uuid",
+            constants.RESULT_FAILURE,
+        ),
     ),
     (
         ("some-uuid", constants.RESULT_CANCEL, None, None),
