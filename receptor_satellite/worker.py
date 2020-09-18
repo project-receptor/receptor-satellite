@@ -9,7 +9,8 @@ import receptor_satellite.response.constants as constants
 from .run_monitor import run_monitor
 
 # EXCEPTION means failure between capsule and the target host
-EXIT_STATUS_RE = re.compile(r"Exit status: ([0-9]+|EXCEPTION)", re.MULTILINE)
+EXIT_STATUS_RE = re.compile(r"Exit status: (([0-9]+)|EXCEPTION)", re.MULTILINE)
+UNREACHABLE_RE = re.compile(r"unreachable=[1-9][0-9]*")
 
 
 def receptor_export(func):
@@ -93,6 +94,8 @@ class Host:
         self.sequence = 0
         self.since = None if run.config.text_update_full else 0.0
         self.result = None
+        self.last_recap_line = ""
+        self.host_recap_re = re.compile(f"^.*{name}.*ok=[0-9]+")
 
     def mark_as_failed(self, message):
         queue = self.run.queue
@@ -119,16 +122,32 @@ class Host:
                     self.name, self.run.playbook_run_id, last_output, self.sequence
                 )
                 self.sequence += 1
+
+            possible_recaps = list(
+                filter(
+                    lambda x: re.match(self.host_recap_re, x), last_output.split("\n")
+                )
+            )
+            if len(possible_recaps) > 0:
+                self.last_recap_line = possible_recaps.pop()
+
             if body["complete"]:
+                connection_error = re.search(UNREACHABLE_RE, self.last_recap_line)
                 result = constants.HOST_RESULT_FAILURE
                 matches = re.findall(EXIT_STATUS_RE, last_output)
+                exit_code = None
                 # This means the job was already running on the host
                 if matches:
-                    # If exitcode is 0
-                    if matches[0] == "0":
-                        result = constants.HOST_RESULT_SUCCESS
-                    elif self.run.cancelled:
-                        result = constants.HOST_RESULT_CANCEL
+                    code = matches[0][1]
+                    # If there was an exit code
+                    if code != "":
+                        exit_code = int(code)
+                        if exit_code == 0:
+                            result = constants.HOST_RESULT_SUCCESS
+                        elif self.run.cancelled:
+                            result = constants.HOST_RESULT_CANCEL
+                        else:
+                            result = constants.HOST_RESULT_FAILURE
                 elif self.run.cancelled:
                     result = constants.HOST_RESULT_CANCEL
                 else:
@@ -139,6 +158,8 @@ class Host:
                     constants.HOST_RESULT_FAILURE
                     if result == constants.HOST_RESULT_INFRA_FAILURE
                     else result,
+                    connection_error or result == constants.HOST_RESULT_INFRA_FAILURE,
+                    exit_code,
                 )
                 self.result = result
                 break

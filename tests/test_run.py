@@ -211,7 +211,7 @@ POLLING_LOOP_TEST_CASES = [
         queue_messages=[
             messages.playbook_run_update("host1", "play_id", "Exit status: 123", 0),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.RESULT_FAILURE
+                "host1", "play_id", constants.RESULT_FAILURE, False, 123
             ),
         ],
     ),
@@ -226,7 +226,9 @@ POLLING_LOOP_TEST_CASES = [
         api_requests=[("output", (None, 1, None))],
         queue_messages=[
             messages.playbook_run_update("host1", "play_id", "Exit status: 123", 0),
-            messages.playbook_run_finished("host1", "play_id", constants.RESULT_CANCEL),
+            messages.playbook_run_finished(
+                "host1", "play_id", constants.RESULT_CANCEL, False, 123
+            ),
         ],
     ),
 ]
@@ -369,7 +371,7 @@ START_TEST_CASES = [
                 0,
             ),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.HOST_RESULT_FAILURE
+                "host1", "play_id", constants.HOST_RESULT_FAILURE, True
             ),
             messages.playbook_run_completed(
                 "play_id",
@@ -390,16 +392,53 @@ START_TEST_CASES = [
                 error=None,
             ),
             dict(
+                error=None,
                 body={
+                    "complete": True,
                     "output": [
                         {
-                            "output": "Error initializing command: Net::SSH::AuthenticationFailed - Authentication failed for user root@centos-katello-3.14-0.example.com\n"  # noqa: E501
+                            "output": "\u001b[0;34mUsing /etc/ansible/ansible.cfg as config file\u001b[0m\n",
+                            "output_type": "stdout",
+                            "timestamp": 1600350676.69755,
                         },
-                        {"output": "Exit status: EXCEPTION"},
+                        {
+                            "output": "\n",
+                            "output_type": "stdout",
+                            "timestamp": 1600350677.70155,
+                        },
+                        {
+                            "output": "\r\nPLAY [all] *********************************************************************\n",
+                            "output_type": "stdout",
+                            "timestamp": 1600350677.70175,
+                        },
+                        {
+                            "output": "\r\nTASK [Gathering Facts] *********************************************************\n",
+                            "output_type": "stdout",
+                            "timestamp": 1600350677.70195,
+                        },
+                        {
+                            "output": "\n",
+                            "output_type": "stdout",
+                            "timestamp": 1600350677.70212,
+                        },
+                        {
+                            "output": '\u001b[1;31mfatal: [host1]: UNREACHABLE! => {"changed": false, "msg": "Invalid/incorrect password: Permission denied, please try again.\\r\\nPermission denied, please try again.\\r\\nReceived disconnect from 10.110.156.47 port 22:2: Too many authentication failures\\r\\nDisconnected from 10.110.156.47 port 22", "unreachable": true}\u001b[0m\n',
+                            "output_type": "stdout",
+                            "timestamp": 1600350684.0395,
+                        },
+                        {
+                            "output": "PLAY RECAP *********************************************************************\n\u001b[0;31mhost1\u001b[0m                   : ok=0    changed=0    \u001b[1;31munreachable=1   \u001b[0m failed=0    skipped=0    rescued=0    ignored=0   ",
+                            "output_type": "stdout",
+                            "timestamp": 1600350687.1491,
+                        },
+                        {
+                            "output": "Exit status: 1",
+                            "output_type": "stdout",
+                            "timestamp": 1600350688.1491,
+                        },
                     ],
-                    "complete": True,
+                    "refresh": False,
                 },
-                error=None,
             ),
         ],
         [
@@ -411,11 +450,11 @@ START_TEST_CASES = [
             messages.playbook_run_update(
                 "host1",
                 "play_id",
-                "Error initializing command: Net::SSH::AuthenticationFailed - Authentication failed for user root@centos-katello-3.14-0.example.com\nExit status: EXCEPTION",  # noqa: E501
+                '\x1b[0;34mUsing /etc/ansible/ansible.cfg as config file\x1b[0m\n\n\r\nPLAY [all] *********************************************************************\n\r\nTASK [Gathering Facts] *********************************************************\n\n\x1b[1;31mfatal: [host1]: UNREACHABLE! => {"changed": false, "msg": "Invalid/incorrect password: Permission denied, please try again.\\r\\nPermission denied, please try again.\\r\\nReceived disconnect from 10.110.156.47 port 22:2: Too many authentication failures\\r\\nDisconnected from 10.110.156.47 port 22", "unreachable": true}\x1b[0m\nPLAY RECAP *********************************************************************\n\x1b[0;31mhost1\x1b[0m                   : ok=0    changed=0    \x1b[1;31munreachable=1   \x1b[0m failed=0    skipped=0    rescued=0    ignored=0   Exit status: 1',
                 0,
             ),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.HOST_RESULT_FAILURE
+                "host1", "play_id", constants.HOST_RESULT_FAILURE, True
             ),
             messages.playbook_run_completed("play_id", constants.RESULT_FAILURE,),
         ],
