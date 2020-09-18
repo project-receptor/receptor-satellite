@@ -125,7 +125,11 @@ def poll_with_retries_scenario(request, base_scenario):
 
 @pytest.mark.asyncio
 async def test_poll_with_retries(poll_with_retries_scenario):
-    (queue, host, param,) = poll_with_retries_scenario
+    (
+        queue,
+        host,
+        param,
+    ) = poll_with_retries_scenario
     satellite_api = host.run.satellite_api
     satellite_api.responses = [
         param.api_output for _x in range(len(param.api_requests))
@@ -245,7 +249,11 @@ def polling_loop_scenario(request, base_scenario):
 
 @pytest.mark.asyncio
 async def test_polling_loop(polling_loop_scenario):
-    (queue, host, param,) = polling_loop_scenario
+    (
+        queue,
+        host,
+        param,
+    ) = polling_loop_scenario
     satellite_api = host.run.satellite_api
     satellite_api.responses = [
         param.api_output for _x in range(len(param.api_requests))
@@ -333,7 +341,10 @@ START_TEST_CASES = [
             messages.playbook_run_finished(
                 "host1", "play_id", constants.RESULT_SUCCESS
             ),
-            messages.playbook_run_completed("play_id", constants.RESULT_SUCCESS,),
+            messages.playbook_run_completed(
+                "play_id",
+                constants.RESULT_SUCCESS,
+            ),
         ],
         FakeLogger()
         .info("Playbook run play_id running as job invocation 123")
@@ -456,7 +467,10 @@ START_TEST_CASES = [
             messages.playbook_run_finished(
                 "host1", "play_id", constants.HOST_RESULT_FAILURE, True
             ),
-            messages.playbook_run_completed("play_id", constants.RESULT_FAILURE,),
+            messages.playbook_run_completed(
+                "play_id",
+                constants.RESULT_FAILURE,
+            ),
         ],
         FakeLogger()
         .info("Playbook run play_id running as job invocation 123")
