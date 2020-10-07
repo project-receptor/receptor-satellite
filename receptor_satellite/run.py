@@ -87,6 +87,9 @@ class Run:
     async def polling_loop(self):
         while any(self.running):
             response = await self.poll_with_retries()
+            if response.get("status") == 404:
+                await asyncio.gather(*[host.polling_loop() for host in self.hosts])
+                break
             if response["error"]:
                 return
             else:
@@ -107,7 +110,7 @@ class Run:
             response = await self.satellite_api.bulk_output(
                 self.job_invocation_id, list(self.running.keys()), self.since
             )
-            if response["error"] is None:
+            if response["error"] is None or response.get("status") == 404:
                 return response
             retry += 1
         self.abort(response["error"], running=True)

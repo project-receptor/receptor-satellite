@@ -490,6 +490,42 @@ RUN_TEST_CASES = [
         .info("Playbook run play_id done")
         .messages,
     ),
+    (
+        [
+            dict(
+                body={"id": 123, "targeting": {"hosts": [{"name": "host1", "id": 5}]}},
+                error=None,
+            ),
+            dict(status=404, error="Not found"),
+            dict(
+                body={
+                    "output": [{"output": "Exit status: 0"}],
+                    "complete": True,
+                },
+                error=None,
+            ),
+        ],
+        [
+            ("trigger", ({"playbook": "playbook"}, ["host1"])),
+            ("bulk_output", (123, [5], None)),
+            ("output", (123, 5, None)),
+        ],
+        [
+            messages.ack("play_id"),
+            messages.playbook_run_update("host1", "play_id", "Exit status: 0", 0),
+            messages.playbook_run_finished(
+                "host1", "play_id", constants.RESULT_SUCCESS
+            ),
+            messages.playbook_run_completed(
+                "play_id",
+                constants.RESULT_SUCCESS,
+            ),
+        ],
+        FakeLogger()
+        .info("Playbook run play_id running as job invocation 123")
+        .info("Playbook run play_id done")
+        .messages,
+    ),
 ]
 
 
