@@ -1,6 +1,6 @@
 import pytest
 
-from receptor_satellite.worker import Config
+from receptor_satellite.config import Config
 from fake_logger import FakeLogger
 
 ERROR_HANDLING_TEST_CASES = [

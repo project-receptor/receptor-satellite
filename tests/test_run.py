@@ -8,7 +8,8 @@ async def _sleep_override(interval):
 
 asyncio.sleep = _sleep_override
 from receptor_satellite.run_monitor import run_monitor  # noqa: E402
-from receptor_satellite.worker import Host, Run  # noqa: E402
+from receptor_satellite.host import Host  # noqa: E402
+from receptor_satellite.run import Run  # noqa: E402
 from receptor_satellite.response.response_queue import ResponseQueue  # noqa: E402
 import receptor_satellite.response.constants as constants  # noqa: E402
 import receptor_satellite.response.messages as messages  # noqa: E402

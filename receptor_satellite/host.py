@@ -1,0 +1,100 @@
+import asyncio
+import re
+
+from receptor_satellite.response.response_queue import constants
+
+# EXCEPTION means failure between capsule and the target host
+EXIT_STATUS_RE = re.compile(r"Exit status: (([0-9]+)|EXCEPTION)", re.MULTILINE)
+UNREACHABLE_RE = re.compile(r"unreachable=[1-9][0-9]*")
+
+
+class Host:
+    def __init__(self, run, id, name):
+        self.run = run
+        self.id = id
+        self.name = name
+        self.sequence = 0
+        self.since = None if run.config.text_update_full else 0.0
+        self.result = None
+        self.last_recap_line = ""
+        self.host_recap_re = re.compile(f"^.*{name}.*ok=[0-9]+")
+
+    def mark_as_failed(self, message):
+        queue = self.run.queue
+        playbook_run_id = self.run.playbook_run_id
+        queue.playbook_run_update(self.name, playbook_run_id, message, self.sequence)
+        queue.playbook_run_finished(
+            self.name, playbook_run_id, constants.RESULT_FAILURE
+        )
+
+    async def polling_loop(self):
+        last_output = ""
+        if self.id is None:
+            return self.mark_as_failed("This host is not known by Satellite")
+        while True:
+            response = await self.poll_with_retries()
+            if response["error"]:
+                break
+            body = response["body"]
+            if body["output"] and (self.run.config.text_updates or body["complete"]):
+                last_output = "".join(chunk["output"] for chunk in body["output"])
+                if self.since is not None:
+                    self.since = body["output"][-1]["timestamp"]
+                self.run.queue.playbook_run_update(
+                    self.name, self.run.playbook_run_id, last_output, self.sequence
+                )
+                self.sequence += 1
+
+            possible_recaps = list(
+                filter(
+                    lambda x: re.match(self.host_recap_re, x), last_output.split("\n")
+                )
+            )
+            if len(possible_recaps) > 0:
+                self.last_recap_line = possible_recaps.pop()
+
+            if body["complete"]:
+                connection_error = re.search(UNREACHABLE_RE, self.last_recap_line)
+                result = constants.HOST_RESULT_FAILURE
+                matches = re.findall(EXIT_STATUS_RE, last_output)
+                exit_code = None
+                # This means the job was already running on the host
+                if matches:
+                    code = matches[0][1]
+                    # If there was an exit code
+                    if code != "":
+                        exit_code = int(code)
+                        if exit_code == 0:
+                            result = constants.HOST_RESULT_SUCCESS
+                        elif self.run.cancelled:
+                            result = constants.HOST_RESULT_CANCEL
+                        else:
+                            result = constants.HOST_RESULT_FAILURE
+                elif self.run.cancelled:
+                    result = constants.HOST_RESULT_CANCEL
+                else:
+                    result = constants.HOST_RESULT_INFRA_FAILURE
+                self.run.queue.playbook_run_finished(
+                    self.name,
+                    self.run.playbook_run_id,
+                    constants.HOST_RESULT_FAILURE
+                    if result == constants.HOST_RESULT_INFRA_FAILURE
+                    else result,
+                    connection_error or result == constants.HOST_RESULT_INFRA_FAILURE,
+                    exit_code,
+                )
+                self.result = result
+                break
+
+    async def poll_with_retries(self):
+        retry = 0
+        while retry < 5:
+            await asyncio.sleep(self.run.config.text_update_interval)
+            response = await self.run.satellite_api.output(
+                self.run.job_invocation_id, self.id, self.since
+            )
+            if response["error"] is None:
+                return response
+            retry += 1
+        self.mark_as_failed(response["error"])
+        return dict(error=True)
