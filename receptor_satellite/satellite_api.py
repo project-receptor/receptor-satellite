@@ -109,6 +109,20 @@ class SatelliteAPI:
         response = await self.request("GET", url, extra_data)
         return sanitize_response(response, [200])
 
+    async def bulk_output(self, job_invocation_id, host_ids, since):
+        url = "{}/api/v2/job_invocations/{}/bulk_outputs".format(
+            self.url, job_invocation_id
+        )
+        search_query = ",".join(map(str, host_ids))
+        extra_data = {
+            "auth": aiohttp.BasicAuth(self.username, self.password),
+            "params": {"search_query": search_query},
+        }
+        if since is not None:
+            extra_data["params"]["since"] = str(since)
+        response = await self.request("GET", url, extra_data)
+        return sanitize_response(response, [200])
+
     async def cancel(self, job_invocation_id):
         url = f"{self.url}/api/v2/job_invocations/{job_invocation_id}/cancel"
         response = await self.request(

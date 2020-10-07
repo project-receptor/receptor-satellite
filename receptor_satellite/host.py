@@ -18,6 +18,8 @@ class Host:
         self.result = None
         self.last_recap_line = ""
         self.host_recap_re = re.compile(f"^.*{name}.*ok=[0-9]+")
+        self.last_output = ""
+        self.unreachable = None
 
     def mark_as_failed(self, message):
         queue = self.run.queue
@@ -27,8 +29,58 @@ class Host:
             self.name, playbook_run_id, constants.RESULT_FAILURE
         )
 
+    def process_outputs(self, outputs):
+        if outputs["output"] and (self.run.config.text_updates or outputs["complete"]):
+            self.last_output = "".join(chunk["output"] for chunk in outputs["output"])
+            if self.since is not None:
+                self.since = outputs["output"][-1]["timestamp"]
+            self.run.queue.playbook_run_update(
+                self.name, self.run.playbook_run_id, self.last_output, self.sequence
+            )
+            self.sequence += 1
+
+        self.find_recap_line()
+
+    def find_recap_line(self):
+        possible_recaps = list(
+            filter(
+                lambda x: re.match(self.host_recap_re, x), self.last_output.split("\n")
+            )
+        )
+        if len(possible_recaps) > 0:
+            self.last_recap_line = possible_recaps.pop()
+
+    def done(self):
+        connection_error = re.search(UNREACHABLE_RE, self.last_recap_line)
+        result = constants.HOST_RESULT_FAILURE
+        matches = re.findall(EXIT_STATUS_RE, self.last_output)
+        exit_code = None
+        # This means the job was already running on the host
+        if matches:
+            code = matches[0][1]
+            # If there was an exit code
+            if code != "":
+                exit_code = int(code)
+                if exit_code == 0:
+                    result = constants.HOST_RESULT_SUCCESS
+                elif self.run.cancelled:
+                    result = constants.HOST_RESULT_CANCEL
+                else:
+                    result = constants.HOST_RESULT_FAILURE
+        elif self.run.cancelled:
+            result = constants.HOST_RESULT_CANCEL
+        else:
+            self.unreachable = True
+        self.run.queue.playbook_run_finished(
+            self.name,
+            self.run.playbook_run_id,
+            result,
+            connection_error or self.unreachable,
+            exit_code,
+        )
+        self.result = result
+
     async def polling_loop(self):
-        last_output = ""
         if self.id is None:
             return self.mark_as_failed("This host is not known by Satellite")
         while True:
@@ -36,54 +88,10 @@ class Host:
             if response["error"]:
                 break
             body = response["body"]
-            if body["output"] and (self.run.config.text_updates or body["complete"]):
-                last_output = "".join(chunk["output"] for chunk in body["output"])
-                if self.since is not None:
-                    self.since = body["output"][-1]["timestamp"]
-                self.run.queue.playbook_run_update(
-                    self.name, self.run.playbook_run_id, last_output, self.sequence
-                )
-                self.sequence += 1
-
-            possible_recaps = list(
-                filter(
-                    lambda x: re.match(self.host_recap_re, x), last_output.split("\n")
-                )
-            )
-            if len(possible_recaps) > 0:
-                self.last_recap_line = possible_recaps.pop()
+            self.process_outputs(body)
 
             if body["complete"]:
-                connection_error = re.search(UNREACHABLE_RE, self.last_recap_line)
-                result = constants.HOST_RESULT_FAILURE
-                matches = re.findall(EXIT_STATUS_RE, last_output)
-                exit_code = None
-                # This means the job was already running on the host
-                if matches:
-                    code = matches[0][1]
-                    # If there was an exit code
-                    if code != "":
-                        exit_code = int(code)
-                        if exit_code == 0:
-                            result = constants.HOST_RESULT_SUCCESS
-                        elif self.run.cancelled:
-                            result = constants.HOST_RESULT_CANCEL
-                        else:
-                            result = constants.HOST_RESULT_FAILURE
-                elif self.run.cancelled:
-                    result = constants.HOST_RESULT_CANCEL
-                else:
-                    result = constants.HOST_RESULT_INFRA_FAILURE
-                self.run.queue.playbook_run_finished(
-                    self.name,
-                    self.run.playbook_run_id,
-                    constants.HOST_RESULT_FAILURE
-                    if result == constants.HOST_RESULT_INFRA_FAILURE
-                    else result,
-                    connection_error or result == constants.HOST_RESULT_INFRA_FAILURE,
-                    exit_code,
-                )
-                self.result = result
+                self.done()
                 break
 
     async def poll_with_retries(self):

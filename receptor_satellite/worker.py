@@ -58,7 +58,7 @@ def execute(message, config, queue):
     queue = ResponseQueue(queue)
     payload = json.loads(message.raw_payload)
     satellite_api = SatelliteAPI.from_plugin_config(config)
-    run(Run.from_raw(queue, payload, satellite_api, logger).start())
+    run(Run.from_raw(queue, payload, satellite_api, logger).run())
 
 
 @receptor_export
