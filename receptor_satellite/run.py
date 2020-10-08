@@ -133,33 +133,6 @@ class Run:
             infrastructure_error=infrastructure_error,
         )
 
-    async def start(self):
-        await self.satellite_api.init_session()
-        try:
-            if not await run_monitor.register(self):
-                self.logger.error(
-                    f"Playbook run {self.playbook_run_id} already known, skipping."
-                )
-                return
-            response = await self.satellite_api.trigger(
-                {"playbook": self.playbook}, [host.name for host in self.hosts]
-            )
-            self.queue.ack(self.playbook_run_id)
-            if response["error"]:
-                self.abort(response["error"])
-            else:
-                self.job_invocation_id = response["body"]["id"]
-                self.logger.info(
-                    f"Playbook run {self.playbook_run_id} running as job invocation {self.job_invocation_id}"
-                )
-                self.update_hosts(response["body"]["targeting"]["hosts"])
-                await asyncio.gather(*[host.polling_loop() for host in self.hosts])
-                await self.finish()
-                self.logger.info(f"Playbook run {self.playbook_run_id} done")
-        finally:
-            await run_monitor.done(self)
-            await self.satellite_api.close_session()
-
     def update_hosts(self, hosts):
         host_map = {host.name: host for host in self.hosts}
         for host in hosts:
