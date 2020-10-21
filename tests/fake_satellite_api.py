@@ -11,9 +11,9 @@ class FakeSatelliteAPI:
         self.record_request("output", (job_id, host_id, since))
         return self.__pop_responses()
 
-    async def bulk_output(self, job_id, host_ids, since):
+    async def outputs(self, job_id, host_ids, since):
         print(f"{(job_id, host_ids, since)}")
-        self.record_request("bulk_output", (job_id, host_ids, since))
+        self.record_request("outputs", (job_id, host_ids, since))
         return self.__pop_responses()
 
     async def trigger(self, inputs, hosts):
