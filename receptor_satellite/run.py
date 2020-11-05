@@ -38,6 +38,8 @@ class Run:
         self.logger = logger
         self.job_invocation_id = None
         self.cancelled = False
+        self.running = {}
+        self.since = None if self.config.text_update_full else 0.0
 
     @classmethod
     def from_raw(cls, queue, raw, satellite_api, logger):
@@ -53,14 +55,15 @@ class Run:
             logger,
         )
 
-    async def start(self):
+    async def run(self):
+        if not await run_monitor.register(self):
+            self.logger.error(
+                f"Playbook run {self.playbook_run_id} already known, skipping."
+            )
+            return
+
         await self.satellite_api.init_session()
         try:
-            if not await run_monitor.register(self):
-                self.logger.error(
-                    f"Playbook run {self.playbook_run_id} already known, skipping."
-                )
-                return
             response = await self.satellite_api.trigger(
                 {"playbook": self.playbook}, [host.name for host in self.hosts]
             )
@@ -73,41 +76,81 @@ class Run:
                     f"Playbook run {self.playbook_run_id} running as job invocation {self.job_invocation_id}"
                 )
                 self.update_hosts(response["body"]["targeting"]["hosts"])
-                await asyncio.gather(*[host.polling_loop() for host in self.hosts])
-                result = constants.RESULT_FAILURE
-                infrastructure_error = None
-                if self.cancelled:
-                    result = constants.RESULT_CANCEL
-                elif any(
-                    host.result == constants.HOST_RESULT_INFRA_FAILURE
-                    for host in self.hosts
-                ):
-                    infrastructure_error = "Infrastructure error"
-                elif all(
-                    host.result == constants.HOST_RESULT_SUCCESS for host in self.hosts
-                ):
-                    result = constants.RESULT_SUCCESS
-                self.queue.playbook_run_completed(
-                    self.playbook_run_id,
-                    result,
-                    infrastructure_error=infrastructure_error,
-                )
-            await run_monitor.done(self)
-            self.logger.info(f"Playbook run {self.playbook_run_id} done")
+                if await self.polling_loop():
+                    await self.finish()
+                self.logger.info(f"Playbook run {self.playbook_run_id} done")
+
         finally:
+            await run_monitor.done(self)
             await self.satellite_api.close_session()
+
+    async def polling_loop(self):
+        while any(self.running):
+            response = await self.poll_with_retries()
+            if response.get("status") == 404:
+                await asyncio.gather(*[host.polling_loop() for host in self.hosts])
+                break
+            if response["error"]:
+                return
+            else:
+                for host_output in response["body"]["outputs"]:
+                    host = self.running[host_output["id"]]
+                    host.process_outputs(host_output)
+                    if self.since is not None and host.since > self.since:
+                        self.since = host.since
+                    if host_output["complete"]:
+                        host.done()
+                        self.running.pop(host.id)
+        return True
+
+    async def poll_with_retries(self):
+        retry = 0
+        while retry < 5:
+            await asyncio.sleep(self.config.text_update_interval)
+            response = await self.satellite_api.outputs(
+                self.job_invocation_id, list(self.running.keys()), self.since
+            )
+            if response["error"] is None or response.get("status") == 404:
+                return response
+            retry += 1
+        self.abort(response["error"], running=True)
+        return dict(error=True)
+
+    async def finish(self):
+        result = constants.RESULT_FAILURE
+        infrastructure_error = None
+        if any(host.unreachable for host in self.hosts):
+            infrastructure_error = "Infrastructure error"
+
+        if self.cancelled:
+            result = constants.RESULT_CANCEL
+        elif all(host.result == constants.HOST_RESULT_SUCCESS for host in self.hosts):
+            result = constants.RESULT_SUCCESS
+
+        self.queue.playbook_run_completed(
+            self.playbook_run_id,
+            result,
+            infrastructure_error=infrastructure_error,
+        )
 
     def update_hosts(self, hosts):
         host_map = {host.name: host for host in self.hosts}
         for host in hosts:
             host_map[host["name"]].id = host["id"]
 
-    def abort(self, error):
+        for host in self.hosts:
+            if host.id is None:
+                host.mark_as_failed("This host is not known by Satellite")
+            else:
+                self.running[host.id] = host
+
+    def abort(self, error, running=False):
         error = str(error)
         self.logger.error(
-            f"Playbook run {self.playbook_run_id} encountered error `{error}`, aborting."
+            f"Playbook run {self.playbook_run_id} encountered error '{error}', aborting."
         )
-        for host in self.hosts:
+        hosts = [host for id, host in self.running.items()] if running else self.hosts
+        for host in hosts:
             host.mark_as_failed(error)
         self.queue.playbook_run_completed(
             self.playbook_run_id, constants.RESULT_FAILURE, connection_error=error
