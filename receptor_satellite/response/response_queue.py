@@ -29,11 +29,21 @@ class ResponseQueue:
         )
 
     def playbook_run_completed(
-        self, playbook_run_id, status, connection_error=None, infrastructure_error=None
+        self,
+        playbook_run_id,
+        status,
+        validation_error=None,
+        connection_error=None,
+        infrastructure_error=None,
     ):
+        validation_code = 0
         connection_code = 0
         infrastructure_code = 0
-        if connection_error:
+        if validation_error:
+            validation_code = 1
+            connection_code = None
+            infrastructure_code = None
+        elif connection_error:
             connection_code = 1
             infrastructure_code = None
         elif infrastructure_error:
@@ -46,6 +56,8 @@ class ResponseQueue:
             messages.playbook_run_completed(
                 playbook_run_id,
                 status,
+                validation_code,
+                validation_error,
                 connection_code,
                 connection_error,
                 infrastructure_code,

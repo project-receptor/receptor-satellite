@@ -7,19 +7,19 @@ from fake_queue import FakeQueue
 
 PLAYBOOK_RUN_COMPLETED_TEST_CASES = [
     (
-        # ((run_id, result, connection_error, infrastructure_error), expectation)
-        ("some-uuid", constants.RESULT_SUCCESS, None, None),
+        # ((run_id, result, connection_error, infrastructure_error, validation_error), expectation)
+        ("some-uuid", constants.RESULT_SUCCESS, None, None, None),
         messages.playbook_run_completed("some-uuid", constants.RESULT_SUCCESS),
     ),
     (
-        ("some-uuid", constants.RESULT_FAILURE, None, None),
+        ("some-uuid", constants.RESULT_FAILURE, None, None, None),
         messages.playbook_run_completed(
             "some-uuid",
             constants.RESULT_FAILURE,
         ),
     ),
     (
-        ("some-uuid", constants.RESULT_CANCEL, None, None),
+        ("some-uuid", constants.RESULT_CANCEL, None, None, None),
         messages.playbook_run_completed(
             "some-uuid",
             constants.RESULT_CANCEL,
@@ -28,7 +28,7 @@ PLAYBOOK_RUN_COMPLETED_TEST_CASES = [
         ),
     ),
     (
-        ("some-uuid", constants.RESULT_FAILURE, "Satellite unreachable", None),
+        ("some-uuid", constants.RESULT_FAILURE, "Satellite unreachable", None, None),
         messages.playbook_run_completed(
             "some-uuid",
             constants.RESULT_FAILURE,
@@ -38,13 +38,30 @@ PLAYBOOK_RUN_COMPLETED_TEST_CASES = [
         ),
     ),
     (
-        ("some-uuid", constants.RESULT_FAILURE, None, "Capsule is down"),
+        ("some-uuid", constants.RESULT_FAILURE, None, "Capsule is down", None),
         messages.playbook_run_completed(
             "some-uuid",
             constants.RESULT_FAILURE,
             connection_code=0,
             infrastructure_code=1,
             infrastructure_error="Capsule is down",
+        ),
+    ),
+    (
+        (
+            "some-uuid",
+            constants.RESULT_FAILURE,
+            None,
+            None,
+            "Playbook validation failed",
+        ),
+        messages.playbook_run_completed(
+            "some-uuid",
+            constants.RESULT_FAILURE,
+            connection_code=None,
+            infrastructure_code=None,
+            validation_code=1,
+            validation_error="Playbook validation failed",
         ),
     ),
 ]
@@ -57,10 +74,12 @@ def playbook_run_completed_scenario(request):
 
 def test_playbook_run_completed(playbook_run_completed_scenario):
     params, expectation = playbook_run_completed_scenario
-    uuid, result, connection_error, infrastructure_error = params
+    uuid, result, connection_error, infrastructure_error, validation_error = params
     fake_queue = FakeQueue()
     queue = ResponseQueue(fake_queue)
 
-    queue.playbook_run_completed(uuid, result, connection_error, infrastructure_error)
+    queue.playbook_run_completed(
+        uuid, result, validation_error, connection_error, infrastructure_error
+    )
     print(expectation)
     assert fake_queue.messages == [expectation]

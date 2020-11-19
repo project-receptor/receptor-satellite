@@ -4,6 +4,8 @@ from receptor_satellite.response.constants import RESULT_SUCCESS
 def playbook_run_completed(
     playbook_run_id,
     status,  # One of RESULT_{SUCCESS,FAILURE,CANCEL}
+    validation_code=0,  # 0 (success) || 1 (error)
+    validation_error=None,  # Message describing the error if validation_code is 1
     connection_code=0,  # 0 (success) || 1 (error) || null (n case job was cancelled)
     connection_error=None,  # “Satellite unreachable” || null (n case job was cancelled),
     infrastructure_code=0,  # 0 (success) || 1 (error) || null (in case satellite connection code is 1) || null (n case job was cancelled)
@@ -15,6 +17,8 @@ def playbook_run_completed(
         "type": "playbook_run_completed",
         "playbook_run_id": playbook_run_id,
         "status": status,
+        "playbook_validation_code": validation_code,
+        "playbook_validation_error": validation_error,
         "satellite_connection_code": connection_code,
         "satellite_connection_error": connection_error,
         "satellite_infrastructure_code": infrastructure_code,
