@@ -38,17 +38,23 @@ def playbook_run_finished(
     host,
     playbook_run_id,
     result=RESULT_SUCCESS,
-    connection_error=False,
+    connection_result=True,
     execution_code=0,
 ):
+    connection_code = 0
+    if connection_result is None:
+        connection_code = None
+    elif not connection_result:
+        connection_code = 1
+
     return {
         "version": 2,
         "type": "playbook_run_finished",
         "playbook_run_id": playbook_run_id,
         "host": host,
         "status": result,
-        "connection_code": 1 if connection_error else 0,
-        "execution_code": None if connection_error else execution_code,
+        "connection_code": connection_code,
+        "execution_code": None if not connection_result else execution_code,
     }
 
 

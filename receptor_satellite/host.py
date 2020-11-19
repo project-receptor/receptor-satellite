@@ -21,12 +21,12 @@ class Host:
         self.last_output = ""
         self.unreachable = None
 
-    def mark_as_failed(self, message):
+    def mark_as_failed(self, message, connection_result=True):
         queue = self.run.queue
         playbook_run_id = self.run.playbook_run_id
         queue.playbook_run_update(self.name, playbook_run_id, message, self.sequence)
         queue.playbook_run_finished(
-            self.name, playbook_run_id, constants.RESULT_FAILURE
+            self.name, playbook_run_id, constants.RESULT_FAILURE, connection_result
         )
 
     def process_outputs(self, outputs):
@@ -51,6 +51,7 @@ class Host:
             self.last_recap_line = possible_recaps.pop()
 
     def done(self):
+        connection_result = True
         connection_error = re.search(UNREACHABLE_RE, self.last_recap_line)
         result = constants.HOST_RESULT_FAILURE
         matches = re.findall(EXIT_STATUS_RE, self.last_output)
@@ -71,11 +72,16 @@ class Host:
             result = constants.HOST_RESULT_CANCEL
         else:
             self.unreachable = True
+            connection_result = None
+
+        if connection_error:
+            connection_result = False
+
         self.run.queue.playbook_run_finished(
             self.name,
             self.run.playbook_run_id,
             result,
-            connection_error or self.unreachable,
+            connection_result,
             exit_code,
         )
         self.result = result

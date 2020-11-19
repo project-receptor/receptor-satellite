@@ -51,7 +51,7 @@ RUN_TEST_CASES = [
             messages.ack("play_id"),
             messages.playbook_run_update("host1", "play_id", "Something broke", 0),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.RESULT_FAILURE
+                "host1", "play_id", constants.RESULT_FAILURE, None
             ),
             messages.playbook_run_completed(
                 "play_id",
@@ -142,7 +142,7 @@ RUN_TEST_CASES = [
                 0,
             ),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.HOST_RESULT_FAILURE, True
+                "host1", "play_id", constants.HOST_RESULT_FAILURE, None
             ),
             messages.playbook_run_completed(
                 "play_id",
@@ -231,12 +231,9 @@ RUN_TEST_CASES = [
                 0,
             ),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.HOST_RESULT_FAILURE, True
+                "host1", "play_id", constants.HOST_RESULT_FAILURE, False
             ),
-            messages.playbook_run_completed(
-                "play_id",
-                constants.RESULT_FAILURE,
-            ),
+            messages.playbook_run_completed("play_id", constants.RESULT_FAILURE),
         ],
         FakeLogger()
         .info("Playbook run play_id running as job invocation 123")
@@ -256,7 +253,7 @@ RUN_TEST_CASES = [
                 0,
             ),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.RESULT_FAILURE
+                "host1", "play_id", constants.RESULT_FAILURE, connection_result=None
             ),
             messages.playbook_run_completed(
                 "play_id",
@@ -298,7 +295,7 @@ RUN_TEST_CASES = [
             messages.ack("play_id"),
             messages.playbook_run_update("host1", "play_id", "Something happened.", 0),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.RESULT_FAILURE
+                "host1", "play_id", constants.RESULT_FAILURE, None
             ),
             messages.playbook_run_completed(
                 "play_id",

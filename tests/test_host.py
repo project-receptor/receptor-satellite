@@ -156,7 +156,7 @@ POLLING_LOOP_TEST_CASES = [
         queue_messages=[
             messages.playbook_run_update("host1", "play_id", "Exit status: 123", 0),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.RESULT_FAILURE, False, 123
+                "host1", "play_id", constants.RESULT_FAILURE, True, 123
             ),
         ],
     ),
@@ -172,7 +172,7 @@ POLLING_LOOP_TEST_CASES = [
         queue_messages=[
             messages.playbook_run_update("host1", "play_id", "Exit status: 123", 0),
             messages.playbook_run_finished(
-                "host1", "play_id", constants.RESULT_CANCEL, False, 123
+                "host1", "play_id", constants.RESULT_CANCEL, True, 123
             ),
         ],
     ),
