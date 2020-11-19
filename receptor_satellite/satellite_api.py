@@ -198,7 +198,8 @@ class SatelliteAPI:
         self.session = aiohttp.ClientSession(auth=auth)
 
     async def close_session(self):
-        await self.session.close()
+        if self.session:
+            await self.session.close()
         self.session = None
 
 

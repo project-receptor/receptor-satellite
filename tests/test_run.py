@@ -1,4 +1,5 @@
 import pytest
+import os
 
 from test_helper import base_scenario  # noqa: F401
 from receptor_satellite.run_monitor import run_monitor  # noqa: E402
@@ -42,7 +43,7 @@ def test_hostname_sanity():
 
 
 RUN_TEST_CASES = [
-    # (api_responses, expected_api_requests, expected_queue_messages, expected_logger_messages)
+    # (api_responses, expected_api_requests, expected_queue_messages, expected_logger_messages, playbook_valid)
     (
         [{"error": "Something broke"}],
         [("trigger", ({"playbook": "playbook"}, ["host1"]))],
@@ -63,6 +64,7 @@ RUN_TEST_CASES = [
         FakeLogger()
         .error("Playbook run play_id encountered error 'Something broke', aborting.")
         .messages,
+        True,
     ),
     (
         [
@@ -102,6 +104,7 @@ RUN_TEST_CASES = [
         .info("Playbook run play_id running as job invocation 123")
         .info("Playbook run play_id done")
         .messages,
+        True,
     ),
     (
         [
@@ -152,6 +155,7 @@ RUN_TEST_CASES = [
         .info("Playbook run play_id running as job invocation 123")
         .info("Playbook run play_id done")
         .messages,
+        True,
     ),
     (
         [
@@ -238,6 +242,37 @@ RUN_TEST_CASES = [
         .info("Playbook run play_id running as job invocation 123")
         .info("Playbook run play_id done")
         .messages,
+        True,
+    ),
+    (
+        [],
+        [],
+        [
+            messages.ack("play_id"),
+            messages.playbook_run_update(
+                "host1",
+                "play_id",
+                "Playbook failed signature validation: PLAYBOOK VALIDATION FAILED",
+                0,
+            ),
+            messages.playbook_run_finished(
+                "host1", "play_id", constants.RESULT_FAILURE
+            ),
+            messages.playbook_run_completed(
+                "play_id",
+                constants.RESULT_FAILURE,
+                validation_code=1,
+                validation_error="Playbook failed signature validation: PLAYBOOK VALIDATION FAILED",
+                connection_code=None,
+                infrastructure_code=None,
+            ),
+        ],
+        FakeLogger()
+        .error(
+            "Playbook run play_id encountered error 'Playbook failed signature validation: PLAYBOOK VALIDATION FAILED', aborting."
+        )
+        .messages,
+        False,
     ),
     (
         [
@@ -281,6 +316,7 @@ RUN_TEST_CASES = [
         )
         .info("Playbook run play_id done")
         .messages,
+        True,
     ),
     (
         [
@@ -317,6 +353,7 @@ RUN_TEST_CASES = [
         .info("Playbook run play_id running as job invocation 123")
         .info("Playbook run play_id done")
         .messages,
+        True,
     ),
 ]
 
@@ -338,9 +375,21 @@ async def test_run(run_scenario):
         expected_api_requests,
         expected_queue_messages,
         expected_logger_messages,
+        playbook_signature_valid,
     ) = case
     satellite_api.responses = api_responses
+    ansible_env_key = "ANSIBLE_PLAYBOOK_VERIFIER_THROW_ERROR"
+    old = os.getenv(ansible_env_key)
+    if not playbook_signature_valid:
+        os.environ[ansible_env_key] = "1"
     await run.run()
+    if old:
+        os.environ[ansible_env_key] = old
+    else:
+        os.environ[ansible_env_key] = ""
+    print(satellite_api.requests)
+    print(logger.messages)
+    print(queue.messages)
     assert satellite_api.requests == expected_api_requests
     assert logger.messages == expected_logger_messages
     assert queue.messages == expected_queue_messages
