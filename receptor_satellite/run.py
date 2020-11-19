@@ -1,5 +1,7 @@
 import asyncio
 
+from insights.client.apps.ansible import playbook_verifier
+
 from .config import Config
 from .host import Host
 from .run_monitor import run_monitor
@@ -64,10 +66,11 @@ class Run:
 
         await self.satellite_api.init_session()
         try:
+            self.queue.ack(self.playbook_run_id)
+            self.playbook = playbook_verifier.verify(self.playbook)
             response = await self.satellite_api.trigger(
                 {"playbook": self.playbook}, [host.name for host in self.hosts]
             )
-            self.queue.ack(self.playbook_run_id)
             if response["error"]:
                 self.abort(response["error"])
             else:
@@ -80,6 +83,11 @@ class Run:
                     await self.finish()
                 self.logger.info(f"Playbook run {self.playbook_run_id} done")
 
+        except playbook_verifier.PlaybookValidationError as err:
+            self.abort(
+                f"Playbook failed signature validation: {err}",
+                error_key="validation_error",
+            )
         finally:
             await run_monitor.done(self)
             await self.satellite_api.close_session()
@@ -144,7 +152,7 @@ class Run:
             else:
                 self.running[host.id] = host
 
-    def abort(self, error, running=False):
+    def abort(self, error, running=False, error_key="connection_error"):
         error = str(error)
         self.logger.error(
             f"Playbook run {self.playbook_run_id} encountered error '{error}', aborting."
@@ -152,6 +160,8 @@ class Run:
         hosts = [host for id, host in self.running.items()] if running else self.hosts
         for host in hosts:
             host.mark_as_failed(error)
+        result = {}
+        result[error_key] = error
         self.queue.playbook_run_completed(
-            self.playbook_run_id, constants.RESULT_FAILURE, connection_error=error
+            self.playbook_run_id, constants.RESULT_FAILURE, **result
         )
