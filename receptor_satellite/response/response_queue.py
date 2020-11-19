@@ -19,12 +19,13 @@ class ResponseQueue:
         host,
         playbook_run_id,
         result=constants.RESULT_SUCCESS,
-        connection_error=False,
+        connection_result=True,
         exit_code=0,
     ):
+        print(connection_result)
         self.queue.put(
             messages.playbook_run_finished(
-                host, playbook_run_id, result, connection_error, exit_code
+                host, playbook_run_id, result, connection_result, exit_code
             )
         )
 

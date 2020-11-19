@@ -148,7 +148,7 @@ class Run:
 
         for host in self.hosts:
             if host.id is None:
-                host.mark_as_failed("This host is not known by Satellite")
+                host.mark_as_failed("This host is not known by Satellite", None)
             else:
                 self.running[host.id] = host
 
@@ -159,7 +159,7 @@ class Run:
         )
         hosts = [host for id, host in self.running.items()] if running else self.hosts
         for host in hosts:
-            host.mark_as_failed(error)
+            host.mark_as_failed(error, None)
         result = {}
         result[error_key] = error
         self.queue.playbook_run_completed(
