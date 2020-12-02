@@ -19,7 +19,7 @@ setup(
     long_description_content_type="text/markdown",
     # TODO: Require minimal version of insights-core once a version with
     #       playbook verifier is released
-    install_requires=["aiohttp", "insights-core"],
+    install_requires=["aiohttp", "insights-core>=3.0.199"],
     zip_safe=False,
     entry_points={"receptor.worker": "receptor_satellite = receptor_satellite.worker"},
     classifiers=["Programming Language :: Python :: 3"],
