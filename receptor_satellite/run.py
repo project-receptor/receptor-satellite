@@ -1,6 +1,6 @@
 import asyncio
 
-from insights.client.apps.ansible import playbook_verifier
+from . import playbook_verifier_adapter
 
 from .config import Config
 from .host import Host
@@ -67,7 +67,7 @@ class Run:
         await self.satellite_api.init_session()
         try:
             self.queue.ack(self.playbook_run_id)
-            self.playbook = playbook_verifier.verify(self.playbook)
+            self.playbook = playbook_verifier_adapter.verify(self.playbook)
             response = await self.satellite_api.trigger(
                 {"playbook": self.playbook}, [host.name for host in self.hosts]
             )
@@ -83,7 +83,7 @@ class Run:
                     await self.finish()
                 self.logger.info(f"Playbook run {self.playbook_run_id} done")
 
-        except playbook_verifier.PlaybookValidationError as err:
+        except playbook_verifier_adapter.PlaybookValidationError as err:
             self.abort(
                 f"Playbook failed signature validation: {err}",
                 error_key="validation_error",
