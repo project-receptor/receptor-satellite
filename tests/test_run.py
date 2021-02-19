@@ -76,7 +76,7 @@ RUN_TEST_CASES = [
                 body={
                     "outputs": [
                         {
-                            "id": 5,
+                            "host_id": 5,
                             "output": [{"output": "Exit status: 0"}],
                             "complete": True,
                         }
@@ -116,7 +116,7 @@ RUN_TEST_CASES = [
                 body={
                     "outputs": [
                         {
-                            "id": 5,
+                            "host_id": 5,
                             "output": [
                                 {
                                     "output": "The only applicable capsule something.somewhere.com is down"
@@ -168,7 +168,7 @@ RUN_TEST_CASES = [
                 body={
                     "outputs": [
                         {
-                            "id": 5,
+                            "host_id": 5,
                             "complete": True,
                             "output": [
                                 {
