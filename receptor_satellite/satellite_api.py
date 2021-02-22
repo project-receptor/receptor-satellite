@@ -114,11 +114,12 @@ class SatelliteAPI:
         ids = ",".join(host_ids)
         extra_data = {
             "auth": aiohttp.BasicAuth(self.username, self.password),
-            "params": {"search_query": f"id ^ ({ids})"},
+            "json": {"search_query": f"id ^ ({ids})"},
+            "headers": {"Content-Type": "application/json"},
         }
         if since is not None:
             extra_data["params"]["since"] = str(since)
-        response = await self.request("GET", url, extra_data)
+        response = await self.request("POST", url, extra_data)
         return sanitize_response(response, [200])
 
     async def cancel(self, job_invocation_id):
