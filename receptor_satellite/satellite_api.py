@@ -111,7 +111,7 @@ class SatelliteAPI:
 
     async def outputs(self, job_invocation_id, host_ids, since):
         url = "{}/api/v2/job_invocations/{}/outputs".format(self.url, job_invocation_id)
-        ids = ",".join(host_ids)
+        ids = ",".join(map(str, host_ids))
         extra_data = {
             "auth": aiohttp.BasicAuth(self.username, self.password),
             "json": {"search_query": f"id ^ ({ids})"},
