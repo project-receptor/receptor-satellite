@@ -115,9 +115,8 @@ class Run:
         retry = 0
         while retry < 5:
             await asyncio.sleep(self.config.text_update_interval)
-            names = [host.name for host in self.running.values()]
             response = await self.satellite_api.outputs(
-                self.job_invocation_id, names, self.since
+                self.job_invocation_id, list(self.running.keys()), self.since
             )
             if response["error"] is None or response.get("status") == 404:
                 return response
