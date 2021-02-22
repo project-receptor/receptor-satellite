@@ -87,7 +87,7 @@ RUN_TEST_CASES = [
         ],
         [
             ("trigger", ({"playbook": "playbook"}, ["host1"])),
-            ("outputs", (123, ["host1"], None)),
+            ("outputs", (123, [5], None)),
         ],
         [
             messages.ack("play_id"),
@@ -131,7 +131,7 @@ RUN_TEST_CASES = [
         ],
         [
             ("trigger", ({"playbook": "playbook"}, ["host1"])),
-            ("outputs", (123, ["host1"], None)),
+            ("outputs", (123, [5], None)),
         ],
         [
             messages.ack("play_id"),
@@ -220,7 +220,7 @@ RUN_TEST_CASES = [
         ],
         [
             ("trigger", ({"playbook": "playbook"}, ["host1"])),
-            ("outputs", (123, ["host1"], None)),
+            ("outputs", (123, [5], None)),
         ],
         [
             messages.ack("play_id"),
@@ -286,11 +286,11 @@ RUN_TEST_CASES = [
         ],
         [
             ("trigger", ({"playbook": "playbook"}, ["host1"])),
-            ("outputs", (123, ["host1"], None)),
-            ("outputs", (123, ["host1"], None)),
-            ("outputs", (123, ["host1"], None)),
-            ("outputs", (123, ["host1"], None)),
-            ("outputs", (123, ["host1"], None)),
+            ("outputs", (123, [5], None)),
+            ("outputs", (123, [5], None)),
+            ("outputs", (123, [5], None)),
+            ("outputs", (123, [5], None)),
+            ("outputs", (123, [5], None)),
         ],
         [
             messages.ack("play_id"),
@@ -333,7 +333,7 @@ RUN_TEST_CASES = [
         ],
         [
             ("trigger", ({"playbook": "playbook"}, ["host1"])),
-            ("outputs", (123, ["host1"], None)),
+            ("outputs", (123, [5], None)),
             ("output", (123, 5, None)),
         ],
         [
