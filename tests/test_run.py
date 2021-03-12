@@ -1,5 +1,4 @@
 import pytest
-import os
 
 from test_helper import base_scenario  # noqa: F401
 from receptor_satellite.run_monitor import run_monitor  # noqa: E402
@@ -9,6 +8,8 @@ import receptor_satellite.response.constants as constants  # noqa: E402
 import receptor_satellite.response.messages as messages  # noqa: E402
 from fake_logger import FakeLogger  # noqa: E402
 from fake_queue import FakeQueue  # noqa: E402
+
+from receptor_satellite import playbook_verifier_adapter
 
 
 def test_hostname_sanity():
@@ -241,37 +242,36 @@ RUN_TEST_CASES = [
         .messages,
         True,
     ),
-    # TODO: Uncomment once playbook signature validation is functional again
-    # (
-    #     [],
-    #     [],
-    #     [
-    #         messages.ack("play_id"),
-    #         messages.playbook_run_update(
-    #             "host1",
-    #             "play_id",
-    #             "Playbook failed signature validation: PLAYBOOK VALIDATION FAILED",
-    #             0,
-    #         ),
-    #         messages.playbook_run_finished(
-    #             "host1", "play_id", constants.RESULT_FAILURE, connection_result=None
-    #         ),
-    #         messages.playbook_run_completed(
-    #             "play_id",
-    #             constants.RESULT_FAILURE,
-    #             validation_code=1,
-    #             validation_error="Playbook failed signature validation: PLAYBOOK VALIDATION FAILED",
-    #             connection_code=None,
-    #             infrastructure_code=None,
-    #         ),
-    #     ],
-    #     FakeLogger()
-    #     .error(
-    #         "Playbook run play_id encountered error 'Playbook failed signature validation: PLAYBOOK VALIDATION FAILED', aborting."
-    #     )
-    #     .messages,
-    #     False,
-    # ),
+    (
+        [],
+        [],
+        [
+            messages.ack("play_id"),
+            messages.playbook_run_update(
+                "host1",
+                "play_id",
+                "Playbook failed signature validation: PLAYBOOK VALIDATION FAILED",
+                0,
+            ),
+            messages.playbook_run_finished(
+                "host1", "play_id", constants.RESULT_FAILURE, connection_result=None
+            ),
+            messages.playbook_run_completed(
+                "play_id",
+                constants.RESULT_FAILURE,
+                validation_code=1,
+                validation_error="Playbook failed signature validation: PLAYBOOK VALIDATION FAILED",
+                connection_code=None,
+                infrastructure_code=None,
+            ),
+        ],
+        FakeLogger()
+        .error(
+            "Playbook run play_id encountered error 'Playbook failed signature validation: PLAYBOOK VALIDATION FAILED', aborting."
+        )
+        .messages,
+        False,
+    ),
     (
         [
             dict(
@@ -363,6 +363,12 @@ def run_scenario(request, base_scenario):  # noqa: F811
     yield (base_scenario, request.param)
 
 
+def __fail_verification(_):
+    raise playbook_verifier_adapter.PlaybookValidationError(
+        "PLAYBOOK VALIDATION FAILED"
+    )
+
+
 @pytest.mark.asyncio
 async def test_run(run_scenario):
     run_monitor._RunMonitor__runs = {}
@@ -376,18 +382,16 @@ async def test_run(run_scenario):
         playbook_signature_valid,
     ) = case
     satellite_api.responses = api_responses
-    ansible_env_key = "ANSIBLE_PLAYBOOK_VERIFIER_THROW_ERROR"
-    old = os.getenv(ansible_env_key)
+    old_verifier = playbook_verifier_adapter.verify
     if not playbook_signature_valid:
-        os.environ[ansible_env_key] = "1"
-    await run.run()
-    if old:
-        os.environ[ansible_env_key] = old
+        playbook_verifier_adapter.verify = __fail_verification
     else:
-        os.environ[ansible_env_key] = ""
+        playbook_verifier_adapter.verify = lambda x: x
+    await run.run()
     print(satellite_api.requests)
     print(logger.messages)
     print(queue.messages)
     assert satellite_api.requests == expected_api_requests
     assert logger.messages == expected_logger_messages
     assert queue.messages == expected_queue_messages
+    playbook_verifier_adapter.verify = old_verifier
