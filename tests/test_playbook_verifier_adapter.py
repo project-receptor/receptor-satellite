@@ -8,7 +8,7 @@ class FakePopen:
         self.returncode = returncode
         self.response = response
 
-    def comunicate(self, input):
+    def communicate(self, input):
         if self.response is None:
             return [input, b""]
         else:

@@ -17,7 +17,7 @@ def verify(playbook):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        outs, errs = sub.comunicate(bytes(playbook, "utf-8"))
+        outs, errs = sub.communicate(bytes(playbook, "utf-8"))
         if sub.returncode == 0:
             return outs.decode("utf-8")
         else:
