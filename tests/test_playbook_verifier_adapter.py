@@ -53,7 +53,8 @@ def test_unregistered_insights_client():
         raised = e
 
     subprocess.Popen = old_popen
-    assert str(raised) == response
+    expected = f"Playbook signature validation exit code: 1\n\n{response}"
+    assert str(raised) == expected
 
 
 def test_any_other_error():

@@ -21,7 +21,10 @@ def verify(playbook):
         if sub.returncode == 0:
             return outs.decode("utf-8")
         else:
-            raise PlaybookValidationError(errs.decode("utf-8"))
+            message = f"Playbook signature validation exit code: {sub.returncode}\n"
+            message += outs.decode("utf-8") + "\n"
+            message += errs.decode("utf-8")
+            raise PlaybookValidationError(message)
     except OSError:
         raise PlaybookValidationError("/usr/bin/insights-client not found")
     except Exception as e:
