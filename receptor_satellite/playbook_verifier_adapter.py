@@ -19,7 +19,11 @@ def verify(playbook):
         )
         outs, errs = sub.communicate(bytes(playbook, "utf-8"))
         if sub.returncode == 0:
-            return outs.decode("utf-8")
+            decoded = outs.decode("utf-8")
+            start = decoded.find("---")
+            if start == -1:
+                start = 0
+            return decoded[start:]
         else:
             message = f"Playbook signature validation exit code: {sub.returncode}\n"
             message += outs.decode("utf-8") + "\n"
