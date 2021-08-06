@@ -10,7 +10,9 @@ class FakePopen:
 
     def communicate(self, input):
         if self.response is None:
-            return [input, b""]
+            response = "Playbook Verification has started\nAll templates successfully validated\n"
+            response += input.decode("utf-8")
+            return [bytes(response, "utf-8"), b""]
         else:
             return self.response
 
@@ -22,6 +24,14 @@ def __raise_oserror(*args, **kwargs):
 def test_success():
     old_popen = subprocess.Popen
     subprocess.Popen = lambda *args, **kwargs: FakePopen()
+    result = playbook_verifier_adapter.verify("---\n- hosts: all\n  tasks: []")
+    subprocess.Popen = old_popen
+    assert result == "---\n- hosts: all\n  tasks: []"
+
+
+def test_invalid_yaml():
+    old_popen = subprocess.Popen
+    subprocess.Popen = lambda *args, **kwargs: FakePopen(response=[b"Hello", b""])
     result = playbook_verifier_adapter.verify("Hello")
     subprocess.Popen = old_popen
     assert result == "Hello"
